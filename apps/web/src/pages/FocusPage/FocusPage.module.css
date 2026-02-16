@@ -45,9 +45,9 @@
 
 .brandLabel {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 500;
+  color: #999;
 }
 
 .settingsRight {
