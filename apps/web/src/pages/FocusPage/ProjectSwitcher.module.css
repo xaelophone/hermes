@@ -183,6 +183,10 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.projectItemCurrent {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 .projectItemContent {
   flex: 1;
   min-width: 0;

@@ -12,6 +12,7 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
   const navigate = useNavigate();
   const wrapperRef = useRef(null);
   const renameInputRef = useRef(null);
+  const committingRef = useRef(false);
 
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -97,10 +98,10 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
     }
   };
 
-  // Navigate to a project
+  // Navigate to a project (close-only if already on it)
   const handleSelect = (id) => {
     closeDropdown();
-    navigate(`/projects/${id}`);
+    if (id !== projectId) navigate(`/projects/${id}`);
   };
 
   // Rename
@@ -111,9 +112,11 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
   };
 
   const commitRename = async (id) => {
+    if (committingRef.current) return;
     const trimmed = renameValue.trim();
     if (!trimmed || !projects) { setRenaming(null); return; }
 
+    committingRef.current = true;
     try {
       await updateWritingProject(id, { title: trimmed });
       setProjects(projects.map((p) => p.id === id ? { ...p, title: trimmed } : p));
@@ -122,10 +125,11 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
       // Fail silently
     }
     setRenaming(null);
+    committingRef.current = false;
   };
 
   const handleRenameKeyDown = (e, id) => {
-    if (e.key === 'Enter') { e.preventDefault(); commitRename(id); }
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitRename(id); }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setRenaming(null); }
   };
 
@@ -153,12 +157,16 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
     }
   };
 
-  // Filter out current project
-  const otherProjects = projects ? projects.filter((p) => p.id !== projectId) : [];
-  const visibleProjects = expanded ? otherProjects : otherProjects.slice(0, INITIAL_VISIBLE);
-  const hasMore = otherProjects.length > INITIAL_VISIBLE;
+  // Sort current project to the top
+  const sortedProjects = projects
+    ? [...projects].sort((a, b) => (a.id === projectId ? -1 : b.id === projectId ? 1 : 0))
+    : [];
+  const visibleProjects = expanded ? sortedProjects : sortedProjects.slice(0, INITIAL_VISIBLE);
+  const hasMore = sortedProjects.length > INITIAL_VISIBLE;
 
   const renderProjectItem = (p) => {
+    const isCurrent = p.id === projectId;
+
     // Delete confirmation mode
     if (confirmingDelete === p.id) {
       return (
@@ -185,7 +193,7 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
     return (
       <div
         key={p.id}
-        className={styles.projectItem}
+        className={`${styles.projectItem}${isCurrent ? ` ${styles.projectItemCurrent}` : ''}`}
         role="button"
         tabIndex={0}
         onClick={() => handleSelect(p.id)}
@@ -293,8 +301,8 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
 
           {projects === null ? (
             <div className={styles.menuLoading}>Loading...</div>
-          ) : otherProjects.length === 0 ? (
-            <div className={styles.menuEmpty}>No other projects</div>
+          ) : sortedProjects.length === 0 ? (
+            <div className={styles.menuEmpty}>No projects</div>
           ) : (
             <div className={`${styles.projectList} ${expanded ? styles.projectListScrollable : ''}`}>
               {visibleProjects.map(renderProjectItem)}
