@@ -254,7 +254,27 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
         </button>
         <span className={styles.sep}>/</span>
         <span className={styles.titleWrap}>
-          <span className={styles.projectTitle}>{projectTitle || 'New Project'}</span>
+          <button
+            className={styles.titleCopyBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!getMarkdown) return;
+              const md = getMarkdown();
+              if (md) {
+                navigator.clipboard.writeText(md).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1200);
+                });
+              }
+            }}
+          >
+            <span className={`${styles.projectTitle} ${copied ? styles.projectTitleHidden : ''}`}>
+              {projectTitle || 'New Project'}
+            </span>
+            <span className={`${styles.copiedLabel} ${copied ? styles.copiedLabelVisible : ''}`}>
+              Copied
+            </span>
+          </button>
           {getMarkdown && (
             <button
               className={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ''}`}
