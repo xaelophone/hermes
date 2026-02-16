@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import Link from '@tiptap/extension-link';
 import { Markdown } from '@tiptap/markdown';
 import { fetchWritingProject, saveProjectPages, saveProjectHighlights } from '@hermes/api';
 import useAuth from '../../hooks/useAuth';
 import useFocusMode from './useFocusMode';
 import useHighlights from './useHighlights';
+import useInlineLink from './useInlineLink';
 import FocusChatWindow from './FocusChatWindow';
 import HighlightPopover from './HighlightPopover';
 import PageTabs, { EMPTY_PAGES, TAB_KEYS } from './PageTabs';
@@ -76,13 +78,22 @@ export default function FocusPage() {
     syncHighlights,
   } = useHighlights();
 
+  const { inlineLinkExtension } = useInlineLink();
+
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false }),
       Markdown,
       Placeholder.configure({
         placeholder: 'Start writing...',
       }),
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: 'https',
+      }),
+      inlineLinkExtension,
       focusExtension,
       highlightExtension,
     ],
@@ -426,6 +437,7 @@ export default function FocusPage() {
         onHighlights={handleHighlights}
         session={session}
       />
+
     </div>
   );
 }
