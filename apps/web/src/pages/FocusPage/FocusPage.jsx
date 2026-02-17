@@ -15,6 +15,7 @@ import HighlightPopover from './HighlightPopover';
 import PageTabs, { EMPTY_PAGES, TAB_KEYS } from './PageTabs';
 import ProjectSwitcher from './ProjectSwitcher';
 import UserMenu from './UserMenu';
+import SignupToast from '../../components/SignupToast/SignupToast';
 import styles from './FocusPage.module.css';
 
 function getWordCount(text) {
@@ -41,7 +42,7 @@ export default function FocusPage() {
   const switchingRef = useRef(false);
   const pagesRef = useRef(pages);
   const activeTabRef = useRef(activeTab);
-  const storageKey = `hermes-focus-pages-${projectId}`;
+  const storageKey = projectId ? `hermes-focus-pages-${projectId}` : 'hermes-welcome-pages';
 
   // Keep refs in sync for use in onUpdate callback
   useEffect(() => {
@@ -211,6 +212,17 @@ export default function FocusPage() {
         }
       }
 
+      // No localStorage found — seed with Welcome content for unauthenticated users
+      if (!loadedPages && !isLoggedIn) {
+        const { WELCOME_PAGES } = await import('@hermes/api');
+        loadedPages = { ...EMPTY_PAGES, ...WELCOME_PAGES };
+      }
+
+      // Set title for unauth Welcome experience
+      if (!isLoggedIn && !projectId) {
+        setProjectTitle('Welcome to Hermes');
+      }
+
       if (loadedPages) {
         setPages(loadedPages);
         pagesRef.current = loadedPages;
@@ -378,7 +390,7 @@ export default function FocusPage() {
               getMarkdown={handleCopy}
             />
           ) : (
-            <span className={styles.brandLabel}>Hermes</span>
+            <span className={styles.brandLabel}>{projectTitle || 'Hermes'}</span>
           )}
 
           <div className={styles.settingsRight}>
@@ -482,6 +494,7 @@ export default function FocusPage() {
         session={session}
       />
 
+      <SignupToast wordCount={wordCount} isLoggedIn={isLoggedIn} />
     </div>
   );
 }

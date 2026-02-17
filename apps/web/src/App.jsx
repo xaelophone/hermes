@@ -35,17 +35,26 @@ function RedirectToLatestProject() {
 
     (async () => {
       try {
-        const { fetchWritingProjects, createWritingProject, seedEssayProject } = await import('@hermes/api');
+        const { fetchWritingProjects, createWritingProject, seedEssayProject, seedWelcomeProject } = await import('@hermes/api');
         const projects = await fetchWritingProjects();
         if (cancelled) return;
 
         if (projects.length > 0) {
           navigate(`/projects/${projects[0].id}`, { replace: true });
         } else {
+          // First login — seed Welcome + Essay projects
+          let welcomeProject;
+          try { welcomeProject = await seedWelcomeProject(session.user.id); } catch { /* continue */ }
           try { await seedEssayProject(session.user.id); } catch { /* continue */ }
-          const project = await createWritingProject('Your First Project', session.user.id);
           if (cancelled) return;
-          navigate(`/projects/${project.id}`, { replace: true });
+
+          if (welcomeProject) {
+            navigate(`/projects/${welcomeProject.id}`, { replace: true });
+          } else {
+            const project = await createWritingProject('Your First Project', session.user.id);
+            if (cancelled) return;
+            navigate(`/projects/${project.id}`, { replace: true });
+          }
         }
       } catch {
         if (!cancelled) setFallback(true);

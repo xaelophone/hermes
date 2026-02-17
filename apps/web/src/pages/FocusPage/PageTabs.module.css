@@ -29,7 +29,8 @@
 }
 
 .tabActive {
-  height: 3px;
+  height: 6px;
+  padding-bottom: 4px;
 }
 
 .tabActive:hover {

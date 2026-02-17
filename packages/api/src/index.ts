@@ -9,6 +9,7 @@ export {
   updateWritingProject,
   deleteWritingProject,
   seedEssayProject,
+  seedWelcomeProject,
   saveProjectContent,
   saveProjectPages,
   saveProjectHighlights,
@@ -16,6 +17,8 @@ export {
   saveAssistantConversation,
   startAssistantStream,
 } from './writing';
+
+export { WELCOME_PAGES } from './welcome-seed';
 
 export type {
   WritingStatus,
