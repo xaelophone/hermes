@@ -13,7 +13,7 @@ const TAB_COLORS = {
 export default function ShareButton({
   projectId,
   projectTitle,
-  pages,
+  getPages,
   published,
   shortId,
   slug,
@@ -72,7 +72,8 @@ export default function ShareButton({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, onOpenChange]);
 
-  // Tabs with content
+  // Tabs with content — read on-demand so this component doesn't re-render on every keystroke
+  const pages = getPages();
   const tabsWithContent = Object.entries(pages)
     .filter(([, content]) => content?.trim())
     .map(([key]) => key);

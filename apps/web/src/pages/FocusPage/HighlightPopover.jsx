@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import styles from './HighlightPopover.module.css';
 
 const TYPE_LABELS = {
@@ -12,7 +12,7 @@ const TYPE_LABELS = {
   factcheck: 'Fact Check',
 };
 
-export default function HighlightPopover({
+export default memo(function HighlightPopover({
   highlight,
   rect,
   onDismiss,
@@ -100,4 +100,4 @@ export default function HighlightPopover({
       </div>
     </div>
   );
-}
+});

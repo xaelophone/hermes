@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWritingProjects, createWritingProject, updateWritingProject, deleteWritingProject } from '@hermes/api';
+import { fetchWritingProjects, fetchWritingProject, createWritingProject, updateWritingProject, deleteWritingProject } from '@hermes/api';
 import { relativeTime } from '@hermes/domain';
 import useAuth from '../../hooks/useAuth';
 import styles from './ProjectSwitcher.module.css';
@@ -198,6 +198,7 @@ export default function ProjectSwitcher({ projectId, projectTitle, onDropdownOpe
         tabIndex={0}
         onClick={() => handleSelect(p.id)}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSelect(p.id); }}
+        onMouseEnter={() => { if (!isCurrent) fetchWritingProject(p.id).catch(() => {}); }}
       >
         <div className={styles.projectItemContent}>
           {renaming === p.id ? (

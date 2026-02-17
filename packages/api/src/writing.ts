@@ -3,6 +3,44 @@ import { getPlatform } from './config';
 import { ESSAY_TITLE, ESSAY_MARKDOWN, ESSAY_OUTLINE } from './essay-seed';
 import { WELCOME_TITLE, WELCOME_PAGES } from './welcome-seed';
 
+// --- In-memory cache ---
+
+const CACHE_TTL = 30_000; // 30 seconds
+const MAX_CACHE_ENTRIES = 50;
+
+type CacheEntry<T> = { data: T; timestamp: number };
+
+const projectCache = new Map<string, CacheEntry<WritingProject | null>>();
+const conversationCache = new Map<string, CacheEntry<AssistantMessage[]>>();
+let projectListCache: CacheEntry<WritingProject[]> | null = null;
+
+function getCached<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
+  const entry = map.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.timestamp > CACHE_TTL) {
+    map.delete(key);
+    return undefined;
+  }
+  return entry.data;
+}
+
+function setCache<T>(map: Map<string, CacheEntry<T>>, key: string, data: T): void {
+  if (map.size >= MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
+  map.set(key, { data, timestamp: Date.now() });
+}
+
+function invalidateProject(projectId: string): void {
+  projectCache.delete(projectId);
+  projectListCache = null;
+}
+
+function invalidateConversation(projectId: string): void {
+  conversationCache.delete(projectId);
+}
+
 export type WritingStatus =
   | 'interview'
   | 'draft'
@@ -105,16 +143,25 @@ export function toWritingProject(row: WritingProjectRow): WritingProject {
 }
 
 export async function fetchWritingProjects(): Promise<WritingProject[]> {
+  if (projectListCache && Date.now() - projectListCache.timestamp <= CACHE_TTL) {
+    return projectListCache.data;
+  }
+
   const { data, error } = await getSupabase()
     .from('projects')
     .select('*')
     .order('updated_at', { ascending: false });
 
   if (error) throw error;
-  return (data || []).map((row) => toWritingProject(row as WritingProjectRow));
+  const projects = (data || []).map((row) => toWritingProject(row as WritingProjectRow));
+  projectListCache = { data: projects, timestamp: Date.now() };
+  return projects;
 }
 
 export async function fetchWritingProject(projectId: string): Promise<WritingProject | null> {
+  const cached = getCached(projectCache, projectId);
+  if (cached !== undefined) return cached;
+
   const { data, error } = await getSupabase()
     .from('projects')
     .select('*')
@@ -126,7 +173,9 @@ export async function fetchWritingProject(projectId: string): Promise<WritingPro
     throw error;
   }
 
-  return toWritingProject(data);
+  const project = toWritingProject(data);
+  setCache(projectCache, projectId, project);
+  return project;
 }
 
 export async function createWritingProject(title: string, userId: string): Promise<WritingProject> {
@@ -141,6 +190,7 @@ export async function createWritingProject(title: string, userId: string): Promi
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  projectListCache = null;
   return toWritingProject(data);
 }
 
@@ -156,6 +206,7 @@ export async function updateWritingProject(
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  invalidateProject(projectId);
   return toWritingProject(data);
 }
 
@@ -166,6 +217,8 @@ export async function deleteWritingProject(projectId: string): Promise<void> {
     .eq('id', projectId);
 
   if (error) throw error;
+  invalidateProject(projectId);
+  invalidateConversation(projectId);
 }
 
 export async function seedEssayProject(userId: string): Promise<WritingProject> {
@@ -191,6 +244,7 @@ export async function seedEssayProject(userId: string): Promise<WritingProject> 
 
   if (draftErr) throw draftErr;
 
+  projectListCache = null;
   return toWritingProject(project);
 }
 
@@ -207,6 +261,7 @@ export async function seedWelcomeProject(userId: string): Promise<WritingProject
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  projectListCache = null;
   return toWritingProject(data);
 }
 
@@ -219,6 +274,7 @@ export async function saveProjectPages(projectId: string, pages: Record<string, 
     .eq('id', projectId);
 
   if (error) throw error;
+  invalidateProject(projectId);
 }
 
 export async function saveProjectContent(projectId: string, content: string): Promise<void> {
@@ -228,18 +284,23 @@ export async function saveProjectContent(projectId: string, content: string): Pr
     .eq('id', projectId);
 
   if (error) throw error;
+  invalidateProject(projectId);
 }
 
 export async function saveProjectHighlights(projectId: string, highlights: Highlight[]): Promise<void> {
   const { error } = await getSupabase()
     .from('projects')
-    .update({ highlights: JSON.parse(JSON.stringify(highlights)) })
+    .update({ highlights })
     .eq('id', projectId);
 
   if (error) throw error;
+  invalidateProject(projectId);
 }
 
 export async function fetchAssistantConversation(projectId: string): Promise<AssistantMessage[]> {
+  const cached = getCached(conversationCache, projectId);
+  if (cached !== undefined) return cached;
+
   const { data, error } = await getSupabase()
     .from('assistant_conversations')
     .select('messages')
@@ -251,7 +312,9 @@ export async function fetchAssistantConversation(projectId: string): Promise<Ass
     throw error;
   }
 
-  return data.messages || [];
+  const messages = data.messages || [];
+  setCache(conversationCache, projectId, messages);
+  return messages;
 }
 
 export async function saveAssistantConversation(projectId: string, messages: AssistantMessage[]): Promise<void> {
@@ -260,13 +323,14 @@ export async function saveAssistantConversation(projectId: string, messages: Ass
     .upsert(
       {
         project_id: projectId,
-        messages: JSON.parse(JSON.stringify(messages)),
+        messages,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'project_id' },
     );
 
   if (error) throw error;
+  invalidateConversation(projectId);
 }
 
 export async function startAssistantStream(
@@ -275,12 +339,14 @@ export async function startAssistantStream(
   pages: Record<string, string>,
   activeTab: string,
   accessToken: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const baseUrl = normalizeBaseUrl(getPlatform().serverBaseUrl);
   const res = await fetch(`${baseUrl}/api/assistant/chat`, {
     method: 'POST',
     headers: authHeaders(accessToken),
     body: JSON.stringify({ projectId, message, pages, activeTab }),
+    signal,
   });
 
   if (!res.ok) {
@@ -337,6 +403,7 @@ export async function publishProject(
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  invalidateProject(projectId);
   return toWritingProject(data);
 }
 
@@ -349,6 +416,7 @@ export async function unpublishProject(projectId: string): Promise<WritingProjec
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  invalidateProject(projectId);
   return toWritingProject(data);
 }
 
@@ -397,5 +465,6 @@ export async function updatePublishSettings(
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  invalidateProject(projectId);
   return toWritingProject(data);
 }

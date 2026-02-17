@@ -171,22 +171,21 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  // Load conversation history
-  const { data: convo } = await supabase
-    .from('assistant_conversations')
-    .select('messages')
-    .eq('project_id', projectId)
-    .single();
+  // Load conversation history, brain dumps, and prior essays in parallel
+  const [{ data: convo }, { data: brainDump }] = await Promise.all([
+    supabase
+      .from('assistant_conversations')
+      .select('messages')
+      .eq('project_id', projectId)
+      .single(),
+    supabase
+      .from('brain_dumps')
+      .select('prior_essays')
+      .eq('project_id', projectId)
+      .single(),
+  ]);
 
   const existingMessages: AssistantMessage[] = ((convo?.messages as AssistantMessage[]) || []).slice(-30);
-
-  // Load prior essays for style context
-  const { data: brainDump } = await supabase
-    .from('brain_dumps')
-    .select('prior_essays')
-    .eq('project_id', projectId)
-    .single();
-
   const priorEssays = await loadPriorEssayRewrites((brainDump?.prior_essays || []) as string[]);
 
   // Build system context
@@ -228,7 +227,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
     .upsert(
       {
         project_id: projectId,
-        messages: JSON.parse(JSON.stringify(allMessages)),
+        messages: allMessages,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'project_id' },
@@ -354,7 +353,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       .upsert(
         {
           project_id: projectId,
-          messages: JSON.parse(JSON.stringify([...allMessages, assistantMessage])),
+          messages: [...allMessages, assistantMessage],
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'project_id' },
@@ -373,7 +372,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
 
       await supabase
         .from('projects')
-        .update({ highlights: JSON.parse(JSON.stringify(merged)) })
+        .update({ highlights: merged })
         .eq('id', projectId);
     }
 

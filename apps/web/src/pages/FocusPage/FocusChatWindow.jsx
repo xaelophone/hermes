@@ -45,7 +45,7 @@ async function readAssistantStream(response, { onText, onHighlight, onDone, onEr
   }
 }
 
-export default function FocusChatWindow({ projectId, pages, activeTab, onHighlights, session }) {
+export default function FocusChatWindow({ projectId, getPages, activeTab, onHighlights, session }) {
   const [expanded, setExpanded] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -53,9 +53,14 @@ export default function FocusChatWindow({ projectId, pages, activeTab, onHighlig
   const [loaded, setLoaded] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const abortRef = useRef(null);
 
   // Load conversation history on mount / project change
   useEffect(() => {
+    // Abort any in-flight stream from the previous project
+    abortRef.current?.abort();
+    abortRef.current = null;
+
     if (!session || !projectId) {
       setMessages([]);
       setLoaded(true);
@@ -102,7 +107,11 @@ export default function FocusChatWindow({ projectId, pages, activeTab, onHighlig
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
-      const response = await startAssistantStream(projectId, text, pages || {}, activeTab || 'coral', accessToken);
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const response = await startAssistantStream(projectId, text, getPages() || {}, activeTab || 'coral', accessToken, controller.signal);
 
       const collectedHighlights = [];
 
@@ -129,7 +138,9 @@ export default function FocusChatWindow({ projectId, pages, activeTab, onHighlig
           // Error handled by stream ending
         },
       });
-    } catch {
+    } catch (err) {
+      // Ignore abort errors (user navigated away or sent another message)
+      if (err?.name === 'AbortError') return;
       // Remove the empty assistant message on error
       setMessages((prev) => {
         const last = prev[prev.length - 1];
@@ -141,7 +152,7 @@ export default function FocusChatWindow({ projectId, pages, activeTab, onHighlig
     } finally {
       setStreaming(false);
     }
-  }, [input, streaming, session, projectId, pages, activeTab, onHighlights]);
+  }, [input, streaming, session, projectId, getPages, activeTab, onHighlights]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
