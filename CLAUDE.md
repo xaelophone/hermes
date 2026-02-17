@@ -30,8 +30,8 @@ Sentry.ErrorBoundary → BrowserRouter → AuthProvider → App
 ```
 /                       → RedirectToLatestProject (redirects to /projects/:id)
 /projects/:projectId    → FocusPage (auth required)
-/login                  → Redirect to / (login lives in UserMenu dropdown)
-/signup                 → Redirect to / (signup lives in UserMenu dropdown)
+/login                  → LoginPage (standalone login form)
+/signup                 → SignupPage (standalone signup form)
 /forgot-password        → Redirect to / (forgot password lives in UserMenu dropdown)
 /reset-password         → ResetPasswordPage
 /auth/confirm           → AuthConfirmPage
