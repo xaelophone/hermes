@@ -305,6 +305,12 @@ export default function FocusPage() {
     dismissHighlight(highlight.id);
   }, [editor, dismissHighlight]);
 
+  // Stable callback for HighlightPopover onDismiss
+  const handleDismissHighlight = useCallback((id) => {
+    if (id) dismissHighlight(id);
+    else clearHighlight();
+  }, [dismissHighlight, clearHighlight]);
+
   // Reply from highlight: focus chat with context
   const handleReply = useCallback((highlight) => {
     const prefill = `Re: "${highlight.matchText.slice(0, 50)}${highlight.matchText.length > 50 ? '...' : ''}" — `;
@@ -615,10 +621,7 @@ export default function FocusPage() {
       <HighlightPopover
         highlight={activeHighlight}
         rect={popoverRect}
-        onDismiss={(id) => {
-          if (id) dismissHighlight(id);
-          else clearHighlight();
-        }}
+        onDismiss={handleDismissHighlight}
         onAcceptEdit={handleAcceptEdit}
         onReply={handleReply}
       />

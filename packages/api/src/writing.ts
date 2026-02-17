@@ -6,6 +6,7 @@ import { WELCOME_TITLE, WELCOME_PAGES } from './welcome-seed';
 // --- In-memory cache ---
 
 const CACHE_TTL = 30_000; // 30 seconds
+const MAX_CACHE_ENTRIES = 50;
 
 type CacheEntry<T> = { data: T; timestamp: number };
 
@@ -24,6 +25,10 @@ function getCached<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefin
 }
 
 function setCache<T>(map: Map<string, CacheEntry<T>>, key: string, data: T): void {
+  if (map.size >= MAX_CACHE_ENTRIES) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) map.delete(oldest);
+  }
   map.set(key, { data, timestamp: Date.now() });
 }
 
@@ -239,6 +244,7 @@ export async function seedEssayProject(userId: string): Promise<WritingProject> 
 
   if (draftErr) throw draftErr;
 
+  projectListCache = null;
   return toWritingProject(project);
 }
 
@@ -255,6 +261,7 @@ export async function seedWelcomeProject(userId: string): Promise<WritingProject
     .single<WritingProjectRow>();
 
   if (error) throw error;
+  projectListCache = null;
   return toWritingProject(data);
 }
 
