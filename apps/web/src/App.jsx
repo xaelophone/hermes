@@ -5,10 +5,7 @@ import styles from './App.module.css';
 import useAuth from './hooks/useAuth';
 
 const FocusPage = lazy(() => import('./pages/FocusPage/FocusPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage/LoginPage'));
-const SignupPage = lazy(() => import('./pages/SignupPage/SignupPage'));
 const AuthConfirmPage = lazy(() => import('./pages/AuthConfirmPage/AuthConfirmPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage/ResetPasswordPage'));
 
 function NotFound() {
@@ -68,9 +65,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RedirectToLatestProject />} />
           <Route path="/projects/:projectId" element={<FocusPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/signup" element={<Navigate to="/" replace />} />
+          <Route path="/forgot-password" element={<Navigate to="/" replace />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/auth/confirm" element={<AuthConfirmPage />} />
           <Route path="*" element={<NotFound />} />

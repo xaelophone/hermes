@@ -30,9 +30,9 @@ Sentry.ErrorBoundary → BrowserRouter → AuthProvider → App
 ```
 /                       → RedirectToLatestProject (redirects to /projects/:id)
 /projects/:projectId    → FocusPage (auth required)
-/login                  → LoginPage
-/signup                 → SignupPage
-/forgot-password        → ForgotPasswordPage
+/login                  → Redirect to / (login lives in UserMenu dropdown)
+/signup                 → Redirect to / (signup lives in UserMenu dropdown)
+/forgot-password        → Redirect to / (forgot password lives in UserMenu dropdown)
 /reset-password         → ResetPasswordPage
 /auth/confirm           → AuthConfirmPage
 *                       → NotFound (404)
@@ -204,6 +204,7 @@ Add the route to `apps/web/src/App.jsx`. Wrap in `RequireAuth` if auth is requir
 - Dev server is port **5176** (not 5173)
 - Supabase email confirmation is **enabled** — users must click the confirmation link before logging in
 - Toast notifications use theme tokens for consistent appearance
+- Test dev credentials (email/password) are in `server/.env`
 
 ## README Maintenance
 
