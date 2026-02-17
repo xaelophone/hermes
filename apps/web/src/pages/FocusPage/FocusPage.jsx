@@ -28,6 +28,8 @@ export default function FocusPage() {
   const [projectTitle, setProjectTitle] = useState('');
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcutsRef = useRef(null);
   const [wordCount, setWordCount] = useState(0);
   const [activeTab, setActiveTab] = useState('coral');
   const [pages, setPages] = useState({ ...EMPTY_PAGES });
@@ -327,6 +329,18 @@ export default function FocusPage() {
     return editor.getMarkdown();
   }, [editor]);
 
+  // Close shortcuts popover on click outside
+  useEffect(() => {
+    if (!shortcutsOpen) return;
+    function handleMouseDown(e) {
+      if (shortcutsRef.current && !shortcutsRef.current.contains(e.target)) {
+        setShortcutsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [shortcutsOpen]);
+
   const focusLabel = focusMode === 'off' ? 'Focus: Off' : 'Focus: On';
 
   const eyeIcon = (
@@ -390,6 +404,45 @@ export default function FocusPage() {
               <span className={styles.focusLabel}>{focusLabel}</span>
               <span className={styles.focusIcon}>{focusIcon}</span>
             </button>
+            {/* Shortcuts reference — desktop only */}
+            <div className={styles.shortcutsWrap} ref={shortcutsRef}>
+              <button
+                className={styles.shortcutsBtn}
+                onClick={() => setShortcutsOpen((v) => !v)}
+                title="Shortcuts & formatting"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </button>
+              {shortcutsOpen && (
+                <div className={styles.shortcutsPopover}>
+                  <div className={styles.shortcutsSection}>
+                    <div className={styles.shortcutsSectionTitle}>Shortcuts</div>
+                    <div className={styles.shortcutRow}><kbd>Cmd+K</kbd><span>Insert link</span></div>
+                    <div className={styles.shortcutRow}><kbd>Cmd+B</kbd><span>Bold</span></div>
+                    <div className={styles.shortcutRow}><kbd>Cmd+I</kbd><span>Italic</span></div>
+                    <div className={styles.shortcutRow}><kbd>Cmd+Z</kbd><span>Undo</span></div>
+                    <div className={styles.shortcutRow}><kbd>Cmd+Shift+Z</kbd><span>Redo</span></div>
+                  </div>
+                  <div className={styles.shortcutsSection}>
+                    <div className={styles.shortcutsSectionTitle}>Markdown</div>
+                    <div className={styles.shortcutRow}><code># </code><span>Heading</span></div>
+                    <div className={styles.shortcutRow}><code>**text**</code><span>Bold</span></div>
+                    <div className={styles.shortcutRow}><code>*text*</code><span>Italic</span></div>
+                    <div className={styles.shortcutRow}><code>~~text~~</code><span>Strikethrough</span></div>
+                    <div className={styles.shortcutRow}><code>`code`</code><span>Inline code</span></div>
+                    <div className={styles.shortcutRow}><code>&gt; </code><span>Blockquote</span></div>
+                    <div className={styles.shortcutRow}><code>- </code><span>Bullet list</span></div>
+                    <div className={styles.shortcutRow}><code>1. </code><span>Numbered list</span></div>
+                    <div className={styles.shortcutRow}><code>---</code><span>Divider</span></div>
+                    <div className={styles.shortcutRow}><code>[text](url)</code><span>Link</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
             <span className={styles.wordCount}>
               {wordCount} {wordCount === 1 ? 'word' : 'words'}
             </span>

@@ -78,6 +78,79 @@
   border-color: rgba(0, 0, 0, 0.25);
 }
 
+/* Shortcuts reference — positioned relative for popover */
+.shortcutsWrap {
+  position: relative;
+}
+
+.shortcutsBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: #999;
+  cursor: pointer;
+  line-height: 0;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.shortcutsBtn:hover {
+  color: #1a1a1a;
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.shortcutsPopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  background: #f5f5f0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  z-index: 300;
+}
+
+.shortcutsSection {
+  margin-bottom: 10px;
+}
+
+.shortcutsSection:last-child {
+  margin-bottom: 0;
+}
+
+.shortcutsSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.shortcutRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.shortcutRow kbd,
+.shortcutRow code {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 11px;
+  color: #555;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 .wordCount {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 13px;
@@ -335,9 +408,19 @@
     pointer-events: none;
   }
 
+  /* Hide bar by default on mobile — only eye button can show it */
   .settingsBar {
-    pointer-events: auto;
+    display: none;
     padding: 10px 12px;
+  }
+
+  /* When toggled visible via eye button */
+  .settingsBarVisible {
+    display: flex;
+  }
+
+  .shortcutsWrap {
+    display: none;
   }
 
   /* Focus: icon-only on mobile */
