@@ -58,6 +58,8 @@ export default function useFocusMode() {
   const [focusMode, setFocusMode] = useState('off');
   const modeRef = useRef('off');
 
+  // modeRef is captured by the ProseMirror plugin closure, not read during render
+  // eslint-disable-next-line react-hooks/refs
   const [focusExtension] = useState(() => createFocusExtension(modeRef));
 
   const cycleFocusMode = useCallback(() => {

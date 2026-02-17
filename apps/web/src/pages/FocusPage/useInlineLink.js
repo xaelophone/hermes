@@ -229,6 +229,8 @@ function createInlineLinkExtension(linkZoneRef) {
 
 export default function useInlineLink() {
   const linkZoneRef = useRef(false);
+  // linkZoneRef is captured by the ProseMirror plugin closure, not read during render
+  // eslint-disable-next-line react-hooks/refs
   const [inlineLinkExtension] = useState(() =>
     createInlineLinkExtension(linkZoneRef),
   );
