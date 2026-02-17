@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { getPlatform } from './config';
-import { ESSAY_TITLE, ESSAY_MARKDOWN, ESSAY_OUTLINE } from './essay-seed';
+import { ESSAY_TITLE, ESSAY_SUBTITLE, ESSAY_MARKDOWN, ESSAY_OUTLINE } from './essay-seed';
 import { WELCOME_TITLE, WELCOME_PAGES } from './welcome-seed';
 
 // --- In-memory cache ---
@@ -52,6 +52,7 @@ export interface WritingProjectRow {
   id: string;
   user_id: string;
   title: string;
+  subtitle: string;
   status: WritingStatus;
   content: string;
   pages: Record<string, string>;
@@ -71,6 +72,7 @@ export interface WritingProject {
   id: string;
   userId: string;
   title: string;
+  subtitle: string;
   status: WritingStatus;
   content: string;
   pages: Record<string, string>;
@@ -88,6 +90,7 @@ export interface WritingProject {
 
 export interface PublishedEssay {
   title: string;
+  subtitle: string;
   authorName: string;
   pages: Record<string, string>;
   publishedTabs: string[];
@@ -129,6 +132,7 @@ export function toWritingProject(row: WritingProjectRow): WritingProject {
     id: row.id,
     userId: row.user_id,
     title: row.title,
+    subtitle: row.subtitle ?? '',
     status: row.status,
     content: row.content || '',
     pages: (row.pages as Record<string, string>) || {},
@@ -199,7 +203,7 @@ export async function createWritingProject(title: string, userId: string): Promi
 
 export async function updateWritingProject(
   projectId: string,
-  updates: Partial<{ title: string; status: WritingStatus }>,
+  updates: Partial<{ title: string; subtitle: string; status: WritingStatus }>,
 ): Promise<WritingProject> {
   const { data, error } = await getSupabase()
     .from('projects')
@@ -229,7 +233,7 @@ export async function seedEssayProject(userId: string): Promise<WritingProject> 
 
   const { data: project, error: projErr } = await sb
     .from('projects')
-    .insert({ title: ESSAY_TITLE, user_id: userId, status: 'complete', content: ESSAY_MARKDOWN })
+    .insert({ title: ESSAY_TITLE, subtitle: ESSAY_SUBTITLE, user_id: userId, status: 'complete', content: ESSAY_MARKDOWN })
     .select('*')
     .single<WritingProjectRow>();
 
@@ -440,7 +444,7 @@ export async function unpublishProject(projectId: string): Promise<WritingProjec
 export async function fetchPublishedEssay(shortId: string): Promise<PublishedEssay | null> {
   const { data, error } = await getSupabase()
     .from('projects')
-    .select('title, author_name, published_pages, published_tabs, published_at, short_id, slug')
+    .select('title, subtitle, author_name, published_pages, published_tabs, published_at, short_id, slug')
     .eq('short_id', shortId)
     .eq('published', true)
     .single();
@@ -461,6 +465,7 @@ export async function fetchPublishedEssay(shortId: string): Promise<PublishedEss
 
   return {
     title: data.title,
+    subtitle: data.subtitle ?? '',
     authorName: data.author_name,
     pages: filteredPages,
     publishedTabs: data.published_tabs || [],

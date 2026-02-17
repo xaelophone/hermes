@@ -30,6 +30,7 @@ export default function FocusPage() {
   const { projectId } = useParams();
   const { session } = useAuth();
   const [projectTitle, setProjectTitle] = useState('');
+  const [projectSubtitle, setProjectSubtitle] = useState('');
   const [publishState, setPublishState] = useState({
     published: false,
     shortId: null,
@@ -49,6 +50,8 @@ export default function FocusPage() {
   const [wordCount, setWordCount] = useState(0);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleEditValue, setTitleEditValue] = useState('');
+  const [editingSubtitle, setEditingSubtitle] = useState(false);
+  const [subtitleEditValue, setSubtitleEditValue] = useState('');
   const [activeTab, setActiveTab] = useState('coral');
   const [pages, setPages] = useState({ ...EMPTY_PAGES });
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -176,6 +179,7 @@ export default function FocusPage() {
           // Set title and publish state from the same fetch
           if (project) {
             if (project.title) setProjectTitle(project.title);
+            setProjectSubtitle(project.subtitle || '');
             setPublishState({
               published: project.published,
               shortId: project.shortId,
@@ -393,6 +397,34 @@ export default function FocusPage() {
   const handleTitleBlur = useCallback(() => {
     commitTitle(titleEditValue);
   }, [commitTitle, titleEditValue]);
+
+  // Inline subtitle editing
+  const startEditingSubtitle = useCallback(() => {
+    setSubtitleEditValue(projectSubtitle);
+    setEditingSubtitle(true);
+  }, [projectSubtitle]);
+
+  const commitSubtitle = useCallback(async (value) => {
+    const trimmed = value.trim();
+    setEditingSubtitle(false);
+    if (trimmed === projectSubtitle) return;
+
+    setProjectSubtitle(trimmed);
+    try {
+      await updateWritingProject(projectId, { subtitle: trimmed });
+    } catch {
+      setProjectSubtitle(projectSubtitle);
+    }
+  }, [projectId, projectSubtitle]);
+
+  const handleSubtitleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitSubtitle(subtitleEditValue); }
+    if (e.key === 'Escape') { e.preventDefault(); setEditingSubtitle(false); }
+  }, [commitSubtitle, subtitleEditValue]);
+
+  const handleSubtitleBlur = useCallback(() => {
+    commitSubtitle(subtitleEditValue);
+  }, [commitSubtitle, subtitleEditValue]);
 
   // Stable callback for child components to read pages on-demand (avoids re-renders on every keystroke)
   const getPages = useCallback(() => pagesRef.current, []);
@@ -658,6 +690,32 @@ export default function FocusPage() {
         {/* Page tabs — scroll with content */}
         <div className={styles.tabsArea}>
           <PageTabs activeTab={activeTab} onTabChange={handleTabChange} pages={pages} />
+        </div>
+        {/* Optional subtitle */}
+        <div className={styles.subtitle}>
+          {isLoggedIn && projectId && editingSubtitle ? (
+            <input
+              className={styles.subtitleInput}
+              value={subtitleEditValue}
+              onChange={(e) => setSubtitleEditValue(e.target.value)}
+              onKeyDown={handleSubtitleKeyDown}
+              onBlur={handleSubtitleBlur}
+              placeholder="Add a subtitle..."
+              autoFocus
+            />
+          ) : projectSubtitle ? (
+            isLoggedIn && projectId ? (
+              <button className={styles.subtitleText} onClick={startEditingSubtitle}>
+                {projectSubtitle}
+              </button>
+            ) : (
+              <span className={styles.subtitleText}>{projectSubtitle}</span>
+            )
+          ) : isLoggedIn && projectId ? (
+            <button className={styles.subtitleAdd} onClick={startEditingSubtitle}>
+              Add subtitle...
+            </button>
+          ) : null}
         </div>
         <div className={styles.content}>
           <div className={styles.editorWrap}>

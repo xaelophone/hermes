@@ -1,5 +1,7 @@
 export const ESSAY_TITLE = 'What Does a Tool Owe You?';
 
+export const ESSAY_SUBTITLE = 'On dignified technology, AI, and the design choices that determine whether technology makes us more or less human';
+
 export const ESSAY_OUTLINE = `# What Does a Tool Owe You?
 
 ## The Question
@@ -10,9 +12,7 @@ export const ESSAY_OUTLINE = `# What Does a Tool Owe You?
 ## The Durable Case
 ## The Answer`;
 
-export const ESSAY_MARKDOWN = `## On dignified technology, AI, and the design choices that determine whether technology makes us more or less human
-
-There\u2019s a question I keep coming back to when I\u2019m building something: what does this tool owe the person using it?
+export const ESSAY_MARKDOWN = `There\u2019s a question I keep coming back to when I\u2019m building something: what does this tool owe the person using it?
 
 Not \u2018what does it do for them\u2019 \u2014 that\u2019s a feature question. And not \u2018does it make them more productive\u2019 \u2014 that\u2019s an efficiency question. I mean something harder than both of those: what does it owe them in the human sense? What is it taking from them in exchange for what it\u2019s giving? And is that trade one they would have chosen if anyone had asked?
 
