@@ -348,10 +348,19 @@ export async function fetchPublishedEssay(shortId: string): Promise<PublishedEss
     throw error;
   }
 
+  // Strip unpublished tab content
+  const publishedTabSet = new Set(data.published_tabs || []);
+  const filteredPages: Record<string, string> = {};
+  for (const tab of publishedTabSet) {
+    if ((data.pages as Record<string, string>)?.[tab]) {
+      filteredPages[tab] = (data.pages as Record<string, string>)[tab];
+    }
+  }
+
   return {
     title: data.title,
     authorName: data.author_name,
-    pages: (data.pages as Record<string, string>) || {},
+    pages: filteredPages,
     publishedTabs: data.published_tabs || [],
     publishedAt: data.published_at,
     shortId: data.short_id,

@@ -85,7 +85,7 @@ export default function ShareButton({
 
       // Auto-save if already published
       if (published && projectId) {
-        updatePublishSettings(projectId, { published_tabs: next }).catch(() => {});
+        updatePublishSettings(projectId, { published_tabs: next }).catch((err) => console.error('Tab update failed:', err));
         onPublishChange?.({ publishedTabs: next });
       }
 
@@ -106,8 +106,8 @@ export default function ShareButton({
         publishedTabs: result.publishedTabs,
         publishedAt: result.publishedAt,
       });
-    } catch {
-      // silent fail
+    } catch (err) {
+      console.error('Publish failed:', err);
     }
     setPublishing(false);
   }, [projectId, authorName, selectedTabs, publishing, onPublishChange]);
@@ -118,15 +118,15 @@ export default function ShareButton({
       await unpublishProject(projectId);
       onPublishChange?.({ published: false });
       setConfirmUnpublish(false);
-    } catch {
-      // silent fail
+    } catch (err) {
+      console.error('Unpublish failed:', err);
     }
   }, [projectId, onPublishChange]);
 
   const handleAuthorBlur = useCallback(() => {
     if (published && projectId) {
       const newSlug = generateSlug(projectTitle || 'untitled');
-      updatePublishSettings(projectId, { author_name: authorName, slug: newSlug }).catch(() => {});
+      updatePublishSettings(projectId, { author_name: authorName, slug: newSlug }).catch((err) => console.error('Author update failed:', err));
       onPublishChange?.({ authorName, slug: newSlug });
     }
   }, [published, projectId, authorName, projectTitle, onPublishChange]);
