@@ -213,6 +213,70 @@
   border-bottom-color: rgba(0, 0, 0, 0.2);
 }
 
+/* Optional subtitle — between tabs and editor */
+.subtitle {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 12px 24px 0;
+}
+
+.subtitleText {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #888;
+  cursor: text;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.subtitleText:hover {
+  color: #666;
+}
+
+.subtitleInput {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #888;
+  outline: none;
+  line-height: 1.4;
+}
+
+.subtitleInput:focus {
+  border-bottom-color: rgba(0, 0, 0, 0.15);
+}
+
+.subtitleAdd {
+  display: block;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #ccc;
+  font-style: italic;
+  cursor: text;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.subtitleAdd:hover {
+  color: #999;
+}
+
 /* Page tabs area — scrolls with content */
 .tabsArea {
   padding: 16px 0 8px;
@@ -572,6 +636,10 @@
 @media (max-width: 640px) {
   .content {
     padding: 24px 16px 160px;
+  }
+
+  .subtitle {
+    padding: 12px 16px 0;
   }
 
   .editorWrap :global(.tiptap) {

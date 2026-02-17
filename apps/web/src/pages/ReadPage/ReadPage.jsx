@@ -85,6 +85,9 @@ export default function ReadPage() {
       <article className={styles.article}>
         <header className={styles.header}>
           <h1 className={styles.title}>{essay.title}</h1>
+          {essay.subtitle && (
+            <p className={styles.subtitle}>{essay.subtitle}</p>
+          )}
           <div className={styles.meta}>
             {essay.authorName && <span>{essay.authorName}</span>}
             {essay.publishedAt && <span>{formatDate(essay.publishedAt)}</span>}
