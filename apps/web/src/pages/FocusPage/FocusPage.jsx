@@ -68,22 +68,7 @@ export default function FocusPage() {
 
   const isLoggedIn = !!session;
 
-  // Load project title and publish state
-  useEffect(() => {
-    if (!projectId || !isLoggedIn) return;
-    fetchWritingProject(projectId).then((project) => {
-      if (!project) return;
-      if (project.title) setProjectTitle(project.title);
-      setPublishState({
-        published: project.published,
-        shortId: project.shortId,
-        slug: project.slug,
-        authorName: project.authorName,
-        publishedTabs: project.publishedTabs,
-        publishedAt: project.publishedAt,
-      });
-    }).catch(() => {});
-  }, [projectId, isLoggedIn]);
+  // Title and publish state are now loaded from the single fetch in the content-loading effect below.
 
   const {
     focusMode,
@@ -185,6 +170,19 @@ export default function FocusPage() {
         try {
           const project = await fetchWritingProject(projectId);
           if (cancelled) return;
+
+          // Set title and publish state from the same fetch
+          if (project) {
+            if (project.title) setProjectTitle(project.title);
+            setPublishState({
+              published: project.published,
+              shortId: project.shortId,
+              slug: project.slug,
+              authorName: project.authorName,
+              publishedTabs: project.publishedTabs,
+              publishedAt: project.publishedAt,
+            });
+          }
 
           // Use pages if they have content, else migrate from content field
           const hasPages = project?.pages && Object.values(project.pages).some((v) => v);
@@ -359,6 +357,9 @@ export default function FocusPage() {
     setPublishState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  // Stable callback for child components to read pages on-demand (avoids re-renders on every keystroke)
+  const getPages = useCallback(() => pagesRef.current, []);
+
   // Close shortcuts popover on click outside
   useEffect(() => {
     if (!shortcutsOpen) return;
@@ -471,7 +472,7 @@ export default function FocusPage() {
               <ShareButton
                 projectId={projectId}
                 projectTitle={projectTitle}
-                pages={pages}
+                getPages={getPages}
                 published={publishState.published}
                 shortId={publishState.shortId}
                 slug={publishState.slug}
@@ -628,7 +629,7 @@ export default function FocusPage() {
       {/* Floating chat window */}
       <FocusChatWindow
         projectId={projectId}
-        pages={pages}
+        getPages={getPages}
         activeTab={activeTab}
         onHighlights={handleHighlights}
         session={session}
