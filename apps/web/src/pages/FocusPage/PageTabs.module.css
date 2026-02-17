@@ -1,20 +1,19 @@
 .tabs {
   display: flex;
-  gap: 6px;
+  justify-content: center;
+  gap: 32px;
   max-width: 680px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
 .tab {
-  flex: 1;
-  height: 2px;
+  width: 23px;
+  height: 23px;
   border: none;
-  border-radius: 2px;
-  padding: 8px 0;
+  border-radius: 50%;
   cursor: pointer;
-  transition: opacity 150ms ease;
-  background-clip: content-box;
+  transition: opacity 150ms ease, transform 150ms ease;
 }
 
 .tabEmpty {
@@ -22,7 +21,7 @@
 }
 
 .tabActive {
-  height: 3px;
+  transform: scale(1.35);
 }
 
 @media (max-width: 640px) {
