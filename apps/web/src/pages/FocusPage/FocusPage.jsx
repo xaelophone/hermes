@@ -10,11 +10,13 @@ import useAuth from '../../hooks/useAuth';
 import useFocusMode from './useFocusMode';
 import useHighlights, { getDocFlatText, flatOffsetToPos } from './useHighlights';
 import useInlineLink from './useInlineLink';
+import LinkTooltip from './LinkTooltip';
 import FocusChatWindow from './FocusChatWindow';
 import HighlightPopover from './HighlightPopover';
 import PageTabs, { EMPTY_PAGES, TAB_KEYS } from './PageTabs';
 import ProjectSwitcher from './ProjectSwitcher';
 import UserMenu from './UserMenu';
+import SignupToast from '../../components/SignupToast/SignupToast';
 import styles from './FocusPage.module.css';
 
 function getWordCount(text) {
@@ -41,7 +43,7 @@ export default function FocusPage() {
   const switchingRef = useRef(false);
   const pagesRef = useRef(pages);
   const activeTabRef = useRef(activeTab);
-  const storageKey = `hermes-focus-pages-${projectId}`;
+  const storageKey = projectId ? `hermes-focus-pages-${projectId}` : 'hermes-welcome-pages';
 
   // Keep refs in sync for use in onUpdate callback
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function FocusPage() {
     syncHighlights,
   } = useHighlights();
 
-  const { inlineLinkExtension } = useInlineLink();
+  const { inlineLinkExtension, linkTooltip, isMac } = useInlineLink();
 
   const editor = useEditor({
     extensions: [
@@ -211,6 +213,18 @@ export default function FocusPage() {
         }
       }
 
+      // No localStorage found — seed with Welcome content for unauthenticated users
+      if (!loadedPages && !isLoggedIn) {
+        const { WELCOME_PAGES, WELCOME_HIGHLIGHTS } = await import('@hermes/api');
+        loadedPages = { ...EMPTY_PAGES, ...WELCOME_PAGES };
+        if (WELCOME_HIGHLIGHTS) replaceHighlights(WELCOME_HIGHLIGHTS);
+      }
+
+      // Set title for unauth Welcome experience
+      if (!isLoggedIn && !projectId) {
+        setProjectTitle('Welcome to Hermes');
+      }
+
       if (loadedPages) {
         setPages(loadedPages);
         pagesRef.current = loadedPages;
@@ -311,8 +325,8 @@ export default function FocusPage() {
     switchingRef.current = false;
 
     setWordCount(getWordCount(editor.getText()));
-    replaceHighlights([]);
-  }, [editor, activeTab, storageKey, isLoggedIn, projectId, replaceHighlights]);
+    clearHighlight();
+  }, [editor, activeTab, storageKey, isLoggedIn, projectId, clearHighlight]);
 
   const handleCopy = useCallback(() => {
     if (!editor) return;
@@ -378,7 +392,7 @@ export default function FocusPage() {
               getMarkdown={handleCopy}
             />
           ) : (
-            <span className={styles.brandLabel}>Hermes</span>
+            <span className={styles.brandLabel}>{projectTitle || 'Hermes'}</span>
           )}
 
           <div className={styles.settingsRight}>
@@ -473,6 +487,9 @@ export default function FocusPage() {
         onReply={handleReply}
       />
 
+      {/* Link tooltip */}
+      <LinkTooltip tooltip={linkTooltip} isMac={isMac} />
+
       {/* Floating chat window */}
       <FocusChatWindow
         projectId={projectId}
@@ -482,6 +499,7 @@ export default function FocusPage() {
         session={session}
       />
 
+      <SignupToast wordCount={wordCount} isLoggedIn={isLoggedIn} />
     </div>
   );
 }

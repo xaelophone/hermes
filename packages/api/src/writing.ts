@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase';
 import { getPlatform } from './config';
 import { ESSAY_TITLE, ESSAY_MARKDOWN, ESSAY_OUTLINE } from './essay-seed';
+import { WELCOME_TITLE, WELCOME_PAGES } from './welcome-seed';
 
 export type WritingStatus =
   | 'interview'
@@ -163,6 +164,22 @@ export async function seedEssayProject(userId: string): Promise<WritingProject> 
   if (draftErr) throw draftErr;
 
   return toWritingProject(project);
+}
+
+export async function seedWelcomeProject(userId: string): Promise<WritingProject> {
+  const { data, error } = await getSupabase()
+    .from('projects')
+    .insert({
+      title: WELCOME_TITLE,
+      user_id: userId,
+      status: 'complete',
+      pages: WELCOME_PAGES,
+    })
+    .select('*')
+    .single<WritingProjectRow>();
+
+  if (error) throw error;
+  return toWritingProject(data);
 }
 
 // --- Assistant API ---
