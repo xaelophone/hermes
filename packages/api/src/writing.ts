@@ -17,6 +17,12 @@ export interface WritingProjectRow {
   content: string;
   pages: Record<string, string>;
   highlights: Highlight[];
+  published: boolean;
+  short_id: string | null;
+  slug: string | null;
+  author_name: string;
+  published_tabs: string[];
+  published_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,8 +35,24 @@ export interface WritingProject {
   content: string;
   pages: Record<string, string>;
   highlights: Highlight[];
+  published: boolean;
+  shortId: string | null;
+  slug: string | null;
+  authorName: string;
+  publishedTabs: string[];
+  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublishedEssay {
+  title: string;
+  authorName: string;
+  pages: Record<string, string>;
+  publishedTabs: string[];
+  publishedAt: string;
+  shortId: string;
+  slug: string;
 }
 
 export interface AssistantMessage {
@@ -70,6 +92,12 @@ export function toWritingProject(row: WritingProjectRow): WritingProject {
     content: row.content || '',
     pages: (row.pages as Record<string, string>) || {},
     highlights: (row.highlights as Highlight[]) || [],
+    published: row.published ?? false,
+    shortId: row.short_id ?? null,
+    slug: row.slug ?? null,
+    authorName: row.author_name ?? '',
+    publishedTabs: row.published_tabs ?? [],
+    publishedAt: row.published_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -243,4 +271,105 @@ export async function startAssistantStream(
   }
 
   return res;
+}
+
+// --- Publishing ---
+
+export function generateShortId(): string {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const values = crypto.getRandomValues(new Uint8Array(7));
+  let id = '';
+  for (let i = 0; i < 7; i++) {
+    id += chars[values[i] % 36];
+  }
+  return id;
+}
+
+export function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80) || 'untitled';
+}
+
+export async function publishProject(
+  projectId: string,
+  authorName: string,
+  publishedTabs: string[],
+): Promise<WritingProject> {
+  // Fetch current project to check if already published (reuse shortId)
+  const existing = await fetchWritingProject(projectId);
+  const shortId = existing?.shortId || generateShortId();
+  const slug = generateSlug(existing?.title || 'untitled');
+
+  const { data, error } = await getSupabase()
+    .from('projects')
+    .update({
+      published: true,
+      short_id: shortId,
+      slug,
+      author_name: authorName,
+      published_tabs: publishedTabs,
+      published_at: existing?.publishedAt || new Date().toISOString(),
+    })
+    .eq('id', projectId)
+    .select('*')
+    .single<WritingProjectRow>();
+
+  if (error) throw error;
+  return toWritingProject(data);
+}
+
+export async function unpublishProject(projectId: string): Promise<WritingProject> {
+  const { data, error } = await getSupabase()
+    .from('projects')
+    .update({ published: false })
+    .eq('id', projectId)
+    .select('*')
+    .single<WritingProjectRow>();
+
+  if (error) throw error;
+  return toWritingProject(data);
+}
+
+export async function fetchPublishedEssay(shortId: string): Promise<PublishedEssay | null> {
+  const { data, error } = await getSupabase()
+    .from('projects')
+    .select('title, author_name, pages, published_tabs, published_at, short_id, slug')
+    .eq('short_id', shortId)
+    .eq('published', true)
+    .single();
+
+  if (error) {
+    if ((error as { code?: string }).code === 'PGRST116') return null;
+    throw error;
+  }
+
+  return {
+    title: data.title,
+    authorName: data.author_name,
+    pages: (data.pages as Record<string, string>) || {},
+    publishedTabs: data.published_tabs || [],
+    publishedAt: data.published_at,
+    shortId: data.short_id,
+    slug: data.slug,
+  };
+}
+
+export async function updatePublishSettings(
+  projectId: string,
+  updates: Partial<{ author_name: string; published_tabs: string[]; slug: string }>,
+): Promise<WritingProject> {
+  const { data, error } = await getSupabase()
+    .from('projects')
+    .update(updates)
+    .eq('id', projectId)
+    .select('*')
+    .single<WritingProjectRow>();
+
+  if (error) throw error;
+  return toWritingProject(data);
 }

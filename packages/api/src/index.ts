@@ -15,6 +15,12 @@ export {
   fetchAssistantConversation,
   saveAssistantConversation,
   startAssistantStream,
+  generateShortId,
+  generateSlug,
+  publishProject,
+  unpublishProject,
+  fetchPublishedEssay,
+  updatePublishSettings,
 } from './writing';
 
 export type {
@@ -23,4 +29,5 @@ export type {
   WritingProjectRow,
   AssistantMessage,
   Highlight,
+  PublishedEssay,
 } from './writing';
