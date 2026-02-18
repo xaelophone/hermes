@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
 import { mcpManager } from '../lib/mcp.js';
@@ -34,7 +34,7 @@ async function hasMcpAccess(userId: string): Promise<boolean> {
 router.use(requireAuth);
 
 // Beta gate middleware
-async function requireMcpAccess(req: Request, res: Response, next: Function) {
+async function requireMcpAccess(req: Request, res: Response, next: NextFunction) {
   const userId = req.user!.id;
   if (!(await hasMcpAccess(userId))) {
     res.status(403).json({ error: 'MCP server configuration requires a Pro subscription' });
