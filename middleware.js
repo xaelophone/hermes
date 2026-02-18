@@ -1,31 +1,28 @@
-// Vercel Edge Middleware — serves OG meta tags to social media bots for /read/* URLs
-// Uses raw fetch to Supabase REST API (no dependencies)
+// Vercel Edge Middleware — serves OG meta tags for /read/* URLs.
+// Detects social crawlers and OG scrapers, serves them a lightweight HTML
+// with article-specific OG tags. Humans get the SPA with default tags.
+//
+// Strategy: instead of maintaining a bot allowlist (fragile — misses unknown
+// scrapers like opengraph.xyz), we detect real browsers and serve the OG HTML
+// to everything else. Real browsers always identify themselves with a known
+// engine token (Chrome, Firefox, Safari, etc).
 
-const BOT_PATTERNS = [
-  'facebookexternalhit',
-  'twitterbot',
-  'linkedinbot',
-  'slackbot',
-  'discordbot',
-  'telegrambot',
-  'whatsapp',
-  'googlebot',
-  'bingbot',
-  'yandexbot',
-  'rogerbot',
-  'embedly',
-  'showyoubot',
-  'outbrain',
-  'pinterest',
-  'quora link preview',
-  'vkshare',
-  'redditbot',
+const BROWSER_ENGINES = [
+  'chrome/',
+  'firefox/',
+  'safari/',
+  'edg/',
+  'opera/',
+  'opr/',
+  'vivaldi/',
+  'brave/',
+  'arc/',
 ];
 
-function isBot(userAgent) {
+function isRealBrowser(userAgent) {
   if (!userAgent) return false;
   const ua = userAgent.toLowerCase();
-  return BOT_PATTERNS.some((pattern) => ua.includes(pattern));
+  return BROWSER_ENGINES.some((engine) => ua.includes(engine));
 }
 
 function stripMarkdown(text) {
@@ -59,8 +56,8 @@ export const config = {
 export default async function middleware(request) {
   const userAgent = request.headers.get('user-agent') || '';
 
-  // Only intercept for bots — humans get the SPA
-  if (!isBot(userAgent)) return;
+  // Real browsers get the SPA — they can render client-side
+  if (isRealBrowser(userAgent)) return;
 
   const url = new URL(request.url);
   const parts = url.pathname.split('/').filter(Boolean);
@@ -74,7 +71,7 @@ export default async function middleware(request) {
   if (!supabaseUrl || !supabaseAnonKey) return;
 
   try {
-    const apiUrl = `${supabaseUrl}/rest/v1/projects?short_id=eq.${encodeURIComponent(shortId)}&published=eq.true&select=title,author_name,published_pages,published_tabs,short_id,slug`;
+    const apiUrl = `${supabaseUrl}/rest/v1/projects?short_id=eq.${encodeURIComponent(shortId)}&published=eq.true&select=title,subtitle,author_name,published_pages,published_tabs,short_id,slug`;
     const res = await fetch(apiUrl, {
       headers: {
         apikey: supabaseAnonKey,
@@ -89,16 +86,19 @@ export default async function middleware(request) {
 
     const project = rows[0];
     const title = project.title || 'Untitled';
+    const subtitle = project.subtitle || '';
     const author = project.author_name || '';
 
-    // Build description from first published tab content
-    let description = '';
-    const tabs = project.published_tabs || [];
-    const pages = project.published_pages || {};
-    for (const tab of tabs) {
-      if (pages[tab]?.trim()) {
-        description = stripMarkdown(pages[tab]).slice(0, 160);
-        break;
+    // Build description: prefer subtitle, fall back to first published tab content
+    let description = subtitle;
+    if (!description) {
+      const tabs = project.published_tabs || [];
+      const pages = project.published_pages || {};
+      for (const tab of tabs) {
+        if (pages[tab]?.trim()) {
+          description = stripMarkdown(pages[tab]).slice(0, 160);
+          break;
+        }
       }
     }
 
@@ -110,15 +110,18 @@ export default async function middleware(request) {
 <head>
   <meta charset="utf-8">
   <title>${escapeHtml(title)}${author ? ` — ${escapeHtml(author)}` : ''}</title>
+  <meta name="description" content="${escapeHtml(description)}">
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(description)}">
   <meta property="og:image" content="${escapeHtml(ogImageUrl)}">
   <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
   <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Hermes">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(title)}">
   <meta name="twitter:description" content="${escapeHtml(description)}">
   <meta name="twitter:image" content="${escapeHtml(ogImageUrl)}">
+  <meta http-equiv="refresh" content="0;url=${escapeHtml(canonicalUrl)}">
 </head>
 <body></body>
 </html>`;
