@@ -74,7 +74,7 @@ export default async function middleware(request) {
   if (!supabaseUrl || !supabaseAnonKey) return;
 
   try {
-    const apiUrl = `${supabaseUrl}/rest/v1/projects?short_id=eq.${encodeURIComponent(shortId)}&published=eq.true&select=title,author_name,pages,published_tabs,short_id,slug`;
+    const apiUrl = `${supabaseUrl}/rest/v1/projects?short_id=eq.${encodeURIComponent(shortId)}&published=eq.true&select=title,author_name,published_pages,published_tabs,short_id,slug`;
     const res = await fetch(apiUrl, {
       headers: {
         apikey: supabaseAnonKey,
@@ -94,7 +94,7 @@ export default async function middleware(request) {
     // Build description from first published tab content
     let description = '';
     const tabs = project.published_tabs || [];
-    const pages = project.pages || {};
+    const pages = project.published_pages || {};
     for (const tab of tabs) {
       if (pages[tab]?.trim()) {
         description = stripMarkdown(pages[tab]).slice(0, 160);
