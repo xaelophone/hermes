@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://arena-mcp-production.up.railway.app/mcp",
       "headers": {
-        "Authorization": "Bearer ${ARENA_ACCESS_TOKEN}"
+        "Authorization": "Bearer ${ARENA_MCP_KEY}"
       }
     }
   }

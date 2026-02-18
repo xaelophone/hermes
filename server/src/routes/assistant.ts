@@ -12,10 +12,24 @@ const router = Router();
 const anthro = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = 'claude-sonnet-4-6';
 
+const ADMIN_USER_IDS = new Set(
+  (process.env.ADMIN_USER_IDS || '').split(',').map(id => id.trim()).filter(Boolean)
+);
+
+function isAdminUser(userId: string): boolean {
+  return ADMIN_USER_IDS.has(userId);
+}
+
+type SourceData = {
+  url: string;
+  title: string;
+};
+
 type AssistantMessage = {
   role: 'user' | 'assistant';
   content: string;
   highlights?: HighlightData[];
+  sources?: SourceData[];
   timestamp: string;
 };
 
@@ -66,7 +80,21 @@ const HIGHLIGHT_TOOL: Anthropic.Messages.Tool = {
   },
 };
 
-const SYSTEM_PROMPT = `You are Hermes, a thoughtful writing assistant. You're the kind of reader every writer wishes they had — someone who pays close attention, asks the questions that unlock better thinking, and isn't afraid to point out where the writing falls short. You respond with both chat messages and inline highlights on their text.
+const CITE_SOURCE_TOOL: Anthropic.Messages.Tool = {
+  name: 'cite_source',
+  description:
+    'Cite a source you referenced or found. Call this for each distinct source URL you mention.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      url:   { type: 'string', description: 'The URL of the source' },
+      title: { type: 'string', description: 'A short descriptive title' },
+    },
+    required: ['url', 'title'],
+  },
+};
+
+const SYSTEM_PROMPT_BASE = `You are Hermes, a thoughtful writing assistant. You're the kind of reader every writer wishes they had — someone who pays close attention, asks the questions that unlock better thinking, and isn't afraid to point out where the writing falls short. You respond with both chat messages and inline highlights on their text.
 
 Your role:
 - Ask probing questions that help the writer think deeper
@@ -93,12 +121,14 @@ Highlight rules:
 - For "edit" and "wordiness" types, always provide suggestedEdit
 - For "voice" type, only use when prior writing samples are available in the context
 
+Be direct, intellectually rigorous, but warm. You're a thinking partner, not an editor.`;
+
+const SYSTEM_PROMPT_TOOLS = `
 External tools:
 - You have access to Are.na, a research and reference platform. Use it when the writer asks for references, examples, inspiration, or research — or when finding real-world examples would strengthen their argument.
 - Don't search unprompted. Only use external tools when the writer's request or the conversation naturally calls for it.
 - When you use a search tool, briefly mention what you found and how it's relevant. Don't dump raw results.
-
-Be direct, intellectually rigorous, but warm. You're a thinking partner, not an editor.`;
+- After referencing a source, call the cite_source tool with the URL and a short title.`;
 
 /**
  * Strips markdown syntax so the AI sees plain text matching what
@@ -195,8 +225,18 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
   const existingMessages: AssistantMessage[] = ((convo?.messages as AssistantMessage[]) || []).slice(-30);
   const priorEssays = await loadPriorEssayRewrites((brainDump?.prior_essays || []) as string[]);
 
+  // Determine MCP access
+  const isPro = req.usageInfo?.plan === 'pro';
+  const isAdmin = isAdminUser(userId);
+  const hasMcpAccess = isPro || isAdmin;
+
+  const tools: Anthropic.Messages.Tool[] = [HIGHLIGHT_TOOL, CITE_SOURCE_TOOL];
+  if (hasMcpAccess) tools.push(...mcpManager.getTools());
+
   // Build system context
-  let systemContent = SYSTEM_PROMPT;
+  let systemContent = hasMcpAccess
+    ? SYSTEM_PROMPT_BASE + '\n' + SYSTEM_PROMPT_TOOLS
+    : SYSTEM_PROMPT_BASE;
 
   // Build document context from pages (active tab first, then non-empty others)
   const tabNames: Record<string, string> = {
@@ -255,6 +295,7 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
 
     let fullTextResponse = '';
     const highlights: HighlightData[] = [];
+    const sources: SourceData[] = [];
     let highlightCounter = 0;
 
     // Tool-use loop
@@ -269,7 +310,7 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
         max_tokens: getMaxTokens(pages),
         temperature: 0.7,
         system: systemContent,
-        tools: [HIGHLIGHT_TOOL, ...mcpManager.getTools()],
+        tools,
         messages,
         stream: true,
       });
@@ -313,6 +354,15 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
                 res.write(`event: highlight\ndata: ${JSON.stringify(highlight)}\n\n`);
               } catch {
                 logger.warn({ projectId }, 'Failed to parse highlight tool input');
+              }
+            } else if (currentToolName === 'cite_source') {
+              try {
+                const input = JSON.parse(currentToolInput);
+                const source: SourceData = { url: input.url, title: input.title };
+                sources.push(source);
+                res.write(`event: source\ndata: ${JSON.stringify(source)}\n\n`);
+              } catch {
+                logger.warn({ projectId }, 'Failed to parse cite_source tool input');
               }
             } else if (mcpManager.isMcpTool(currentToolName)) {
               // Notify frontend that an MCP tool is being invoked
@@ -358,6 +408,15 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
               };
             }
 
+            if (block.name === 'cite_source') {
+              const input = block.input as { url?: string; title?: string };
+              return {
+                type: 'tool_result' as const,
+                tool_use_id: block.id,
+                content: `Source cited: ${input.title || input.url}`,
+              };
+            }
+
             // MCP tool
             const result = await mcpManager.callTool(
               block.name,
@@ -388,11 +447,12 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
     // Send done event
     res.write(`event: done\ndata: ${JSON.stringify({ messageId: crypto.randomUUID() })}\n\n`);
 
-    // Save assistant message with highlights
+    // Save assistant message with highlights and sources
     const assistantMessage: AssistantMessage = {
       role: 'assistant',
       content: fullTextResponse,
       highlights: highlights.length > 0 ? highlights : undefined,
+      sources: sources.length > 0 ? sources : undefined,
       timestamp: new Date().toISOString(),
     };
 

@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { fetchAssistantConversation, startAssistantStream } from '@hermes/api';
 import useUsage from '../../hooks/useUsage';
 import MarkdownText from '../../components/MarkdownText/MarkdownText';
+import SourcesPill from './SourcesPill';
 import styles from './FocusChatWindow.module.css';
 
 /**
  * Reads a structured SSE stream (event: text | highlight | done | error).
  */
-async function readAssistantStream(response, { onText, onHighlight, onDone, onError }) {
+async function readAssistantStream(response, { onText, onHighlight, onSource, onToolStatus, onDone, onError }) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -33,6 +34,10 @@ async function readAssistantStream(response, { onText, onHighlight, onDone, onEr
             onText?.(parsed.chunk);
           } else if (currentEvent === 'highlight') {
             onHighlight?.(parsed);
+          } else if (currentEvent === 'source') {
+            onSource?.(parsed);
+          } else if (currentEvent === 'tool_status') {
+            onToolStatus?.(parsed);
           } else if (currentEvent === 'done') {
             onDone?.(parsed);
           } else if (currentEvent === 'error') {
@@ -51,6 +56,7 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [toolStatus, setToolStatus] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -116,6 +122,7 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
       const response = await startAssistantStream(projectId, text, getPages() || {}, activeTab || 'coral', accessToken, controller.signal);
 
       const collectedHighlights = [];
+      const collectedSources = [];
 
       await readAssistantStream(response, {
         onText(chunk) {
@@ -131,14 +138,36 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
         onHighlight(highlight) {
           collectedHighlights.push(highlight);
         },
+        onSource(source) {
+          collectedSources.push(source);
+        },
+        onToolStatus(status) {
+          if (status.status === 'running') {
+            setToolStatus(status);
+          } else {
+            setToolStatus(null);
+          }
+        },
         onDone() {
           if (collectedHighlights.length > 0) {
             onHighlights?.(collectedHighlights);
           }
+          // Attach sources to the assistant message
+          if (collectedSources.length > 0) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, sources: collectedSources };
+              }
+              return updated;
+            });
+          }
+          setToolStatus(null);
           refreshUsage(true);
         },
         onError() {
-          // Error handled by stream ending
+          setToolStatus(null);
         },
       });
     } catch (err) {
@@ -175,6 +204,7 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
       }
     } finally {
       setStreaming(false);
+      setToolStatus(null);
     }
   }, [input, streaming, session, projectId, getPages, activeTab, onHighlights, refreshUsage]);
 
@@ -253,15 +283,22 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
           </div>
         ) : (
           messages.map((msg, i) => (
-            <div
-              key={i}
-              className={msg.role === 'user' ? styles.msgUser : styles.msgAssistant}
-            >
-              <div className={styles.msgText}>
-                {msg.role === 'assistant' ? <MarkdownText value={msg.content} /> : msg.content}
+            <div key={i}>
+              <div className={msg.role === 'user' ? styles.msgUser : styles.msgAssistant}>
+                <div className={styles.msgText}>
+                  {msg.role === 'assistant' ? <MarkdownText value={msg.content} /> : msg.content}
+                </div>
               </div>
+              {msg.role === 'assistant' && msg.sources?.length > 0 && (
+                <SourcesPill sources={msg.sources} />
+              )}
             </div>
           ))
+        )}
+        {toolStatus && (
+          <div className={styles.toolStatusIndicator}>
+            Searching {toolStatus.server === 'arena' ? 'Are.na' : toolStatus.server}...
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
