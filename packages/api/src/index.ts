@@ -26,6 +26,9 @@ export {
 
 export { validateInviteCode, signupWithInvite, consumeInviteCode } from './auth';
 
+export { fetchCurrentUsage, getProUpgradeUrl, createPortalSession } from './billing';
+export type { UsageInfo } from './billing';
+
 export { WELCOME_PAGES, WELCOME_HIGHLIGHTS } from './welcome-seed';
 
 export type {

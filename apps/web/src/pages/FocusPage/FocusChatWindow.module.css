@@ -112,6 +112,12 @@
   flex-shrink: 0;
 }
 
+.usageCounter {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 6px;
+}
+
 .inputField {
   width: 100%;
   background: #eae8e2;

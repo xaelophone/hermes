@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchAssistantConversation, startAssistantStream } from '@hermes/api';
+import { fetchAssistantConversation, startAssistantStream, getProUpgradeUrl } from '@hermes/api';
+import useUsage from '../../hooks/useUsage';
 import MarkdownText from '../../components/MarkdownText/MarkdownText';
 import styles from './FocusChatWindow.module.css';
 
@@ -54,6 +55,7 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+  const { usage, refresh: refreshUsage } = useUsage(session);
 
   // Load conversation history on mount / project change
   useEffect(() => {
@@ -133,6 +135,7 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
           if (collectedHighlights.length > 0) {
             onHighlights?.(collectedHighlights);
           }
+          refreshUsage(true);
         },
         onError() {
           // Error handled by stream ending
@@ -141,18 +144,43 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
     } catch (err) {
       // Ignore abort errors (user navigated away or sent another message)
       if (err?.name === 'AbortError') return;
-      // Remove the empty assistant message on error
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last.role === 'assistant' && !last.content) {
-          return prev.slice(0, -1);
-        }
-        return prev;
-      });
+
+      if (err?.status === 429) {
+        // Rate limited — show inline upgrade message
+        const upgradeUrl = getProUpgradeUrl(session?.user?.id || '');
+        const limitMsg = err.plan === 'pro'
+          ? `You've reached your monthly limit of ${err.limit} messages.`
+          : `You've reached your daily limit of ${err.limit} messages.`;
+        const upgradeText = err.plan !== 'pro' && upgradeUrl
+          ? ` [Upgrade to Pro](${upgradeUrl}) for 300 messages/month.`
+          : '';
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === 'assistant' && !last.content) {
+            updated[updated.length - 1] = {
+              ...last,
+              content: limitMsg + upgradeText,
+            };
+          }
+          return updated;
+        });
+        refreshUsage(true);
+      } else {
+        // Remove the empty assistant message on error
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last.role === 'assistant' && !last.content) {
+            return prev.slice(0, -1);
+          }
+          return prev;
+        });
+      }
     } finally {
       setStreaming(false);
     }
-  }, [input, streaming, session, projectId, getPages, activeTab, onHighlights]);
+  }, [input, streaming, session, projectId, getPages, activeTab, onHighlights, refreshUsage]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -244,6 +272,11 @@ export default function FocusChatWindow({ projectId, getPages, activeTab, onHigh
 
       {isLoggedIn && (
         <div className={styles.inputArea}>
+          {usage && (
+            <div className={styles.usageCounter}>
+              {usage.remaining} left {usage.plan === 'pro' ? 'this month' : 'today'}
+            </div>
+          )}
           <input
             ref={inputRef}
             className={styles.inputField}

@@ -6,7 +6,10 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import assistantRouter from './routes/assistant.js';
 import authRouter from './routes/auth.js';
+import stripeRouter from './routes/stripe.js';
+import usageRouter from './routes/usage.js';
 import logger from './lib/logger.js';
+import { mcpManager } from './lib/mcp.js';
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -36,6 +39,9 @@ app.use(cors({
   credentials: true,
 }));
 
+// Stripe webhook needs raw body — mount before express.json()
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '1mb' }));
 
 // Global rate limit: 300 req / 15 min
@@ -52,17 +58,28 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/auth', rateLimit({ windowMs: 60_000, max: 10, standardHeaders: true, legacyHeaders: false }), authRouter);
 app.use('/api/assistant', rateLimit({ windowMs: 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false }), assistantRouter);
+app.use('/api/stripe', stripeRouter);
+app.use('/api/usage', rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false }), usageRouter);
 
 // Sentry error handler (must be after all routes)
 Sentry.setupExpressErrorHandler(app);
 
-app.listen(port, () => {
-  logger.info({ port }, 'Server started');
+async function start() {
+  await mcpManager.initialize();
+  app.listen(port, () => {
+    logger.info({ port }, 'Server started');
+  });
+}
+
+start().catch((err) => {
+  logger.error({ err }, 'Failed to start server');
+  process.exit(1);
 });
 
 // Graceful shutdown
-function shutdown(signal: string) {
+async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutdown signal received');
+  await mcpManager.shutdown();
   process.exit(0);
 }
 

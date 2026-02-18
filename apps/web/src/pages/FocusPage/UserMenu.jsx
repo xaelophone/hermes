@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getProUpgradeUrl, createPortalSession } from '@hermes/api';
 import { supabase } from '../../lib/supabase';
 import useAuth from '../../hooks/useAuth';
+import useUsage from '../../hooks/useUsage';
 import styles from './UserMenu.module.css';
 
 export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
   const { session, signIn, signInWithGoogle, signOut, updatePassword } = useAuth();
+  const { usage } = useUsage(session);
   const wrapperRef = useRef(null);
   const passwordInputRef = useRef(null);
   const loginEmailRef = useRef(null);
@@ -12,7 +15,7 @@ export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
   const forgotEmailRef = useRef(null);
 
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState('menu'); // 'menu' | 'password' | 'login' | 'signup' | 'signupDone' | 'forgotPassword' | 'forgotPasswordDone'
+  const [view, setView] = useState('menu'); // 'menu' | 'password' | 'billing' | 'login' | 'signup' | 'signupDone' | 'forgotPassword' | 'forgotPasswordDone'
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loginEmail, setLoginEmail] = useState('');
@@ -69,7 +72,7 @@ export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
     if (!open) return;
     const handleKey = (e) => {
       if (e.key === 'Escape') {
-        if (view === 'password' || view === 'login' || view === 'signup' || view === 'signupDone' || view === 'forgotPassword' || view === 'forgotPasswordDone') {
+        if (view === 'password' || view === 'billing' || view === 'login' || view === 'signup' || view === 'signupDone' || view === 'forgotPassword' || view === 'forgotPasswordDone') {
           setView('menu');
           setError('');
         } else {
@@ -179,6 +182,16 @@ export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
     await signOut();
   };
 
+  const handleManageSubscription = async () => {
+    if (!session?.access_token) return;
+    try {
+      const { url } = await createPortalSession(session.access_token);
+      window.open(url, '_blank');
+    } catch {
+      // Silently fail
+    }
+  };
+
   const initial = email ? email[0].toUpperCase() : null;
 
   const personIcon = (
@@ -243,6 +256,46 @@ export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
                   </button>
                 </div>
               </form>
+            ) : view === 'billing' ? (
+              <div className={styles.billingView}>
+                <div className={styles.billingTitle}>Billing</div>
+                <div className={styles.billingPlan}>
+                  {usage?.plan === 'pro' ? 'Pro' : 'Free'} plan
+                  {usage?.cancelAtPeriodEnd && usage?.currentPeriodEnd && (
+                    <span className={styles.billingCancelNote}>
+                      {' '}(cancels {new Date(usage.currentPeriodEnd).toLocaleDateString()})
+                    </span>
+                  )}
+                </div>
+                {usage && (
+                  <div className={styles.billingUsage}>
+                    {usage.used} / {usage.limit} messages used
+                  </div>
+                )}
+                {usage?.plan === 'pro' ? (
+                  <button
+                    className={styles.billingActionBtn}
+                    onClick={handleManageSubscription}
+                  >
+                    Manage subscription
+                  </button>
+                ) : (
+                  <a
+                    className={styles.billingActionBtn}
+                    href={getProUpgradeUrl(session?.user?.id || '')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Upgrade to Pro — $15/mo
+                  </a>
+                )}
+                <button
+                  className={styles.billingBackBtn}
+                  onClick={() => setView('menu')}
+                >
+                  Back
+                </button>
+              </div>
             ) : (
               <>
                 <div className={styles.emailSection}>
@@ -255,6 +308,12 @@ export default function UserMenu({ onDropdownOpen, onDropdownClose }) {
                     onClick={() => setView('password')}
                   >
                     Change Password
+                  </button>
+                  <button
+                    className={styles.menuItem}
+                    onClick={() => setView('billing')}
+                  >
+                    Billing
                   </button>
                   <button
                     className={`${styles.menuItem} ${styles.menuItemDanger}`}

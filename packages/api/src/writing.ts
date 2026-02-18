@@ -358,7 +358,19 @@ export async function startAssistantStream(
   });
 
   if (!res.ok) {
-    throw new Error('Failed to stream assistant response');
+    const err: any = new Error('Failed to stream assistant response');
+    err.status = res.status;
+    try {
+      const body = await res.json();
+      err.code = body.code;
+      err.plan = body.plan;
+      err.used = body.used;
+      err.limit = body.limit;
+      err.serverMessage = body.message;
+    } catch {
+      // Response wasn't JSON
+    }
+    throw err;
   }
 
   return res;

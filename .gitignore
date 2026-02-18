@@ -13,6 +13,7 @@ dist-ssr
 *.local
 server/.env
 server/.env.staging
+server/mcp.local.json
 apps/web/.env.staging
 supabase/.temp
 

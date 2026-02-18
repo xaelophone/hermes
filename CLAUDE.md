@@ -95,6 +95,12 @@ Transitions are explicit via `POST /api/writing/status`. Each stage is persisted
 - `POST /api/auth/signup` — create user with invite code (email/password, auto-confirmed)
 - `POST /api/auth/use-invite` — consume invite code use (for Google OAuth flow)
 
+**Billing** (`server/src/routes/stripe.ts` + `server/src/routes/usage.ts`):
+
+- `POST /api/stripe/webhook` — Stripe webhook handler (signature-verified, idempotent)
+- `POST /api/stripe/portal` — create Stripe Customer Portal session (auth required)
+- `GET /api/usage/current` — current user's message usage and plan info (auth required)
+
 **Planned** (to be built in `server/src/routes/writing.ts`):
 
 - `POST /api/writing/status` — advance project status (`{ projectId, status }`)
@@ -114,6 +120,9 @@ All tables linked by `project_id`, owner-scoped via RLS:
 - `drafts` — `id`, `project_id`, `version`, `skeleton` (AI-generated), `rewrite` (user's text)
 - `feedback` — `id`, `project_id`, `draft_id`, `content` (AI critique)
 - `assistant_conversations` — `project_id` (unique), `messages` (JSONB), timestamps
+- `user_profiles` — `id` (PK → auth.users), `plan`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status`, `billing_cycle_anchor`, `cancel_at_period_end`, `current_period_end`, timestamps
+- `message_usage` — `id`, `user_id`, `project_id`, `created_at` (tracks per-message usage for limits)
+- `processed_stripe_events` — `event_id` (PK), `event_type`, `processed_at` (webhook idempotency)
 
 ### Design details
 
@@ -172,7 +181,7 @@ Production credentials are **never** stored in local env files. They are only se
 
 - **Region**: us-east-1
 - **Tables**: `projects`, `brain_dumps`, `interviews`, `drafts`, `feedback`, `assistant_conversations`, `invite_codes`
-- **Migrations**: `supabase/migrations/` (00001 initial, 00002 pages, 00003 publishing, 00004 invite codes)
+- **Migrations**: `supabase/migrations/` (00001 initial, 00002 pages, 00003 publishing, 00004 invite codes, 00005 published pages + subtitle, 00006 subscriptions)
 - **RLS**: Owner-scoped — authenticated users can only read/write their own data. Published projects are publicly readable.
 
 ### Data conventions
@@ -202,6 +211,8 @@ ANTHROPIC_API_KEY=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_KEY=...
 SUPABASE_ANON_KEY=...
+STRIPE_SECRET_KEY=...         # Stripe secret key for billing
+STRIPE_WEBHOOK_SECRET=...     # Stripe webhook signing secret
 SENTRY_DSN=...                # Error tracking (optional)
 LOG_LEVEL=info                # debug, info, warn, error
 ```
