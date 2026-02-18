@@ -4,8 +4,10 @@
 //
 // Strategy: instead of maintaining a bot allowlist (fragile — misses unknown
 // scrapers like opengraph.xyz), we detect real browsers and serve the OG HTML
-// to everything else. Real browsers always identify themselves with a known
-// engine token (Chrome, Firefox, Safari, etc).
+// to everything else. Real browsers identify themselves with a known engine
+// token (Chrome, Firefox, Safari, etc). Safari-only UAs get an extra check
+// via Sec-Fetch-Dest header, since Apple's link preview fetchers (iMessage,
+// Mail, Notes) also use Safari UAs but don't send Sec-Fetch headers.
 
 const BROWSER_ENGINES = [
   'chrome/',
@@ -19,10 +21,25 @@ const BROWSER_ENGINES = [
   'arc/',
 ];
 
-function isRealBrowser(userAgent) {
-  if (!userAgent) return false;
+function isRealBrowser(request) {
+  const userAgent = request.headers.get('user-agent') || '';
   const ua = userAgent.toLowerCase();
-  return BROWSER_ENGINES.some((engine) => ua.includes(engine));
+
+  if (!BROWSER_ENGINES.some((engine) => ua.includes(engine))) return false;
+
+  // Chrome, Firefox, Edge, etc. are definitively real browsers
+  const isSafariOnly =
+    ua.includes('safari/') &&
+    !ua.includes('chrome/') &&
+    !ua.includes('firefox/') &&
+    !ua.includes('edg/');
+
+  if (!isSafariOnly) return true;
+
+  // Safari-only UAs are ambiguous — Apple's link preview fetchers (iMessage,
+  // Mail, Notes) also send Safari UAs. Use Sec-Fetch-Dest as a tiebreaker:
+  // real Safari navigation sends "document", scrapers send nothing.
+  return request.headers.get('sec-fetch-dest') === 'document';
 }
 
 function stripMarkdown(text) {
@@ -54,10 +71,8 @@ export const config = {
 };
 
 export default async function middleware(request) {
-  const userAgent = request.headers.get('user-agent') || '';
-
   // Real browsers get the SPA — they can render client-side
-  if (isRealBrowser(userAgent)) return;
+  if (isRealBrowser(request)) return;
 
   const url = new URL(request.url);
   const parts = url.pathname.split('/').filter(Boolean);
