@@ -523,21 +523,13 @@ router.post('/chat', requireAuth, checkMessageLimit, async (req: Request, res: R
         { onConflict: 'project_id' },
       );
 
-    // Also save highlights to project
+    // Atomically append highlights to project (capped at 200)
     if (highlights.length > 0) {
-      const { data: projectData } = await supabase
-        .from('projects')
-        .select('highlights')
-        .eq('id', projectId)
-        .single();
-
-      const existingHighlights = (projectData?.highlights as HighlightData[]) || [];
-      const merged = [...existingHighlights, ...highlights];
-
-      await supabase
-        .from('projects')
-        .update({ highlights: merged })
-        .eq('id', projectId);
+      await supabase.rpc('append_highlights', {
+        p_project_id: projectId,
+        p_user_id: userId,
+        p_new_highlights: highlights,
+      });
     }
 
     // Record successful message usage
